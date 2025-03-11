@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>作品集 - 修复版</title>
+    <title>作品集 - 优化版</title>
     <style>
         * {
             margin: 0;
@@ -22,17 +22,23 @@
             margin: 0 auto;
         }
 
-        /* 占位符样式 */
+        .gallery-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px 0;
+        }
+
+        /* 占位容器样式 */
         .placeholder {
             width: 100%;
-            height: 400px; /* 根据图片比例调整 */
             background: #222;
             border-radius: 8px;
             position: relative;
             overflow: hidden;
-            margin-bottom: 20px;
         }
 
+        /* 加载动画 */
         .placeholder::after {
             content: "";
             position: absolute;
@@ -50,12 +56,15 @@
         }
 
         @keyframes loading {
-            100% { left: 200%; }
+            100% {
+                left: 200%;
+            }
         }
 
         .gallery-image {
             width: 100%;
             height: auto;
+            display: block;
             opacity: 0;
             transition: opacity 0.5s;
             border-radius: 8px;
@@ -72,6 +81,7 @@
     </div>
 
     <script>
+        // 动态加载图片
         async function loadGallery() {
             const container = document.getElementById('works');
             let index = 1;
@@ -85,17 +95,20 @@
                 // 创建占位容器
                 const placeholder = document.createElement('div');
                 placeholder.className = 'placeholder';
-                container.appendChild(placeholder);
+                
+                // 设置动态比例占位
+                const aspectRatio = await getImageAspectRatio(imgUrl);
+                placeholder.style.paddingTop = `${aspectRatio}%`;
 
                 // 创建图片元素
                 const img = new Image();
                 img.className = 'gallery-image';
-                img.loading = 'lazy';
+                img.dataset.src = imgUrl;
                 img.alt = `作品 ${index}`;
 
                 // 图片加载完成处理
                 img.onload = () => {
-                    placeholder.style.background = 'none'; // 移除占位背景
+                    placeholder.style.paddingTop = 0;
                     placeholder.innerHTML = '';
                     placeholder.appendChild(img);
                     img.classList.add('loaded');
@@ -103,22 +116,37 @@
 
                 // 错误处理
                 img.onerror = () => {
-                    placeholder.remove(); // 移除加载失败的占位符
+                    placeholder.style.display = 'none';
                 };
 
                 // 使用IntersectionObserver实现视口加载
                 const observer = new IntersectionObserver((entries) => {
                     entries.forEach(entry => {
                         if(entry.isIntersecting) {
-                            img.src = imgUrl;
+                            img.src = img.dataset.src;
                             observer.unobserve(placeholder);
                         }
                     });
-                }, { rootMargin: '200px' });
+                }, {
+                    rootMargin: '200px' // 提前200px加载
+                });
 
                 observer.observe(placeholder);
+                container.appendChild(placeholder);
                 index++;
             }
+        }
+
+        // 获取图片宽高比例
+        async function getImageAspectRatio(url) {
+            return new Promise(resolve => {
+                const img = new Image();
+                img.onload = () => {
+                    resolve((img.naturalHeight / img.naturalWidth) * 100);
+                };
+                img.onerror = () => resolve(56.25); // 默认16:9比例
+                img.src = url;
+            });
         }
 
         // 检测图片是否存在
