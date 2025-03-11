@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>设计师作品集</title>
+    <title>作品集</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            line-height: 0; /* 消除行高间隙 */
         }
 
         body {
-            background: #1a1a1a;
+            background: #111;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
@@ -67,44 +66,28 @@
             background: #fff;
         }
 
-        .tab-btn:hover:not(.active) {
-            color: #fff;
-            opacity: 0.8;
-        }
-
-        /* 画廊布局 */
+        /* 作品页布局 */
         .gallery-container {
-            column-count: 1;
-            column-gap: 0;
-        }
-
-        @media (min-width: 640px) {
-            .gallery-container {
-                column-count: 2;
-            }
-        }
-
-        @media (min-width: 1024px) {
-            .gallery-container {
-                column-count: 3;
-            }
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px 0;
         }
 
         .image-wrapper {
-            break-inside: avoid;
-            margin-bottom: 0;
+            width: 100%;
+            position: relative;
+            overflow: visible;
         }
 
         .gallery-image {
             width: 100%;
             height: auto;
             display: block;
-            margin-bottom: 0;
-            transition: transform 0.3s ease;
-        }
-
-        .gallery-image:hover {
-            transform: scale(0.98);
+            object-fit: contain; /* 完整显示不裁剪 */
+            border-radius: 8px;
+            background: #222; /* 深色背景避免透明区域留白 */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
     </style>
 </head>
@@ -139,12 +122,12 @@
         // 图片加载器
         async function loadGallery(target) {
             const container = document.getElementById(target);
-            container.innerHTML = ''; // 清空容器
+            container.innerHTML = '';
             
             let index = 1;
             const currentConfig = config[target];
 
-            while(index <= currentConfig.maxImages) {
+            while(true) {
                 const imgUrl = `${currentConfig.path}${index}.png`;
                 const imgExists = await checkImageExists(imgUrl);
 
@@ -181,18 +164,15 @@
         // Tab切换逻辑
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                // 切换激活状态
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 
-                // 切换内容显示
                 const target = this.dataset.target;
                 document.querySelectorAll('.gallery-container').forEach(container => {
                     container.style.display = 'none';
                 });
-                document.getElementById(target).style.display = 'block';
+                document.getElementById(target).style.display = 'flex';
                 
-                // 首次访问时加载内容
                 if(document.getElementById(target).children.length === 0) {
                     loadGallery(target);
                 }
