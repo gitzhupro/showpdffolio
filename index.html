@@ -23,7 +23,6 @@
             overflow-x: hidden;
         }
 
-        /* Tab切换核心样式 */
         .tabs input[type="radio"] {
             display: none;
         }
@@ -66,7 +65,6 @@
             animation: fadeIn 0.6s cubic-bezier(0.23, 1, 0.32, 1);
         }
 
-        /* 图片展示系统 */
         .gallery-item {
             margin: 0 auto 4rem;
             max-width: 1200px;
@@ -83,7 +81,6 @@
             transition: transform 0.3s ease;
         }
 
-        /* 加载动画 */
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -101,21 +98,17 @@
 </head>
 <body>
     <div class="tabs">
-        <!-- Tab导航 -->
         <div class="tab-nav">
             <input type="radio" name="tab" id="works" checked>
             <label for="works">Works</label>
-            
             <input type="radio" name="tab" id="about">
             <label for="about">About</label>
         </div>
 
-        <!-- 作品画廊 -->
         <div class="gallery-container" id="works-content">
             <div class="gallery-item" id="works-container"></div>
         </div>
 
-        <!-- 关于画廊 -->
         <div class="gallery-container" id="about-content">
             <div class="gallery-item" id="about-container"></div>
         </div>
@@ -124,51 +117,76 @@
     </div>
 
     <script>
-        // 图片加载器
         class ImageGallery {
             constructor(containerId, folderPath) {
                 this.container = document.getElementById(containerId);
                 this.folderPath = folderPath;
                 this.imageIndex = 1;
+                this.maxRetry = 3; // 最大重试次数
+                this.timeout = 5000; // 超时时间
             }
 
             async loadImages() {
                 try {
-                    while(true) {
+                    let hasValidImage = false;
+                    for (let retry = 0; retry < this.maxRetry; retry++) {
                         const imgPath = `${this.folderPath}/${this.imageIndex}.PNG`;
                         const img = new Image();
+                        img.crossOrigin = "Anonymous"; // 解决跨域问题
                         
-                        img.src = imgPath;
-                        img.className = 'gallery-image';
-                        img.alt = `Project ${this.imageIndex}`;
-                        
-                        img.onload = () => {
+                        // 设置超时控制
+                        const timeoutPromise = new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Timeout')), this.timeout)
+                        );
+
+                        const loadPromise = new Promise((resolve, reject) => {
+                            img.onload = () => {
+                                hasValidImage = true;
+                                resolve(img);
+                            };
+                            img.onerror = () => reject(new Error('Image load failed'));
+                        });
+
+                        try {
+                            img.src = imgPath;
+                            await Promise.race([loadPromise, timeoutPromise]);
+                            
                             const wrapper = document.createElement('div');
                             wrapper.className = 'gallery-item';
                             wrapper.appendChild(img);
                             this.container.appendChild(wrapper);
-                        };
-                        
-                        img.onerror = () => { throw new Error('Image load failed') };
-                        
-                        this.imageIndex++;
-                        // 延迟加载避免阻塞
-                        await new Promise(r => setTimeout(r, 100));
+                            
+                            this.imageIndex++;
+                            retry = 0; // 重置重试次数
+                        } catch (error) {
+                            if (retry === this.maxRetry - 1) {
+                                if (!hasValidImage && this.imageIndex === 1) {
+                                    this.showFallback();
+                                }
+                                break;
+                            }
+                        }
                     }
-                } catch(e) {
-                    document.getElementById('loading').style.display = 'none';
-                    console.log(`Loaded ${this.imageIndex-1} images`);
+                } finally {
+                    document.getElementById('loading').remove();
                 }
+            }
+
+            showFallback() {
+                this.container.innerHTML = `
+                    <div style="text-align:center; padding:2rem; color:var(--accent-color)">
+                        <p>未找到图片文件，请检查以下配置：</p>
+                        <p>1. 确认存在 ${this.folderPath}/ 文件夹</p>
+                        <p>2. 图片命名格式为 1.PNG, 2.PNG...</p>
+                        <p>3. 通过本地服务器运行（如VS Code Live Server）</p>
+                    </div>
+                `;
             }
         }
 
-        // 初始化画廊
         window.addEventListener('DOMContentLoaded', () => {
-            const worksGallery = new ImageGallery('works-container', 'folio');
-            const aboutGallery = new ImageGallery('about-container', 'aboutme');
-            
-            worksGallery.loadImages();
-            aboutGallery.loadImages();
+            new ImageGallery('works-container', 'folio').loadImages();
+            new ImageGallery('about-container', 'aboutme').loadImages();
         });
     </script>
 </body>
