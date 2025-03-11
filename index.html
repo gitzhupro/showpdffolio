@@ -3,190 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Design Portfolio</title>
+    <title>全屏图片画廊</title>
     <style>
-        :root {
-            --primary-color: #2C2C2C;
-            --accent-color: #7D7D7D;
-            --bg-color: #FFFFFF;
-        }
-
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Helvetica Neue', sans-serif;
         }
 
         body {
-            background: var(--bg-color);
-            overflow-x: hidden;
-        }
-
-        .tabs input[type="radio"] {
-            display: none;
-        }
-
-        .tab-nav {
-            position: fixed;
-            top: 2rem;
-            right: 2rem;
-            z-index: 100;
-            background: rgba(255,255,255,0.9);
-            padding: 1rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        }
-
-        .tab-nav label {
-            cursor: pointer;
-            padding: 0.8rem 1.5rem;
-            margin: 0 0.5rem;
-            border-radius: 8px;
-            color: var(--primary-color);
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-
-        .tabs input:checked + label {
-            background: var(--primary-color);
-            color: white;
+            height: 100vh;
+            background: #000;
         }
 
         .gallery-container {
-            display: none;
-            min-height: 100vh;
-            padding: 4rem 2rem;
-        }
-
-        #works:checked ~ #works-content,
-        #about:checked ~ #about-content {
-            display: block;
-            animation: fadeIn 0.6s cubic-bezier(0.23, 1, 0.32, 1);
-        }
-
-        .gallery-item {
-            margin: 0 auto 4rem;
-            max-width: 1200px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-            border-radius: 2px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            grid-auto-rows: minmax(200px, 1fr);
+            gap: 5px;
+            height: 100vh;
+            padding: 5px;
             overflow: hidden;
-            background: #FAFAFA;
+        }
+
+        .image-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
         }
 
         .gallery-image {
             width: 100%;
-            height: 100vh;
-            object-fit: contain;
+            height: 100%;
+            object-fit: cover;
             transition: transform 0.3s ease;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .loading {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 1.2rem;
-            color: var(--accent-color);
+        @media (hover: hover) {
+            .gallery-image:hover {
+                transform: scale(1.05);
+            }
         }
     </style>
 </head>
 <body>
-    <div class="tabs">
-        <div class="tab-nav">
-            <input type="radio" name="tab" id="works" checked>
-            <label for="works">Works</label>
-            <input type="radio" name="tab" id="about">
-            <label for="about">About</label>
-        </div>
-
-        <div class="gallery-container" id="works-content">
-            <div class="gallery-item" id="works-container"></div>
-        </div>
-
-        <div class="gallery-container" id="about-content">
-            <div class="gallery-item" id="about-container"></div>
-        </div>
-
-        <div class="loading" id="loading">Loading...</div>
-    </div>
+    <div class="gallery-container" id="gallery"></div>
 
     <script>
-        class ImageGallery {
-            constructor(containerId, folderPath) {
-                this.container = document.getElementById(containerId);
-                this.folderPath = folderPath;
-                this.imageIndex = 1;
-                this.maxRetry = 3; // 最大重试次数
-                this.timeout = 5000; // 超时时间
-            }
+        // 配置参数
+        const config = {
+            basePath: '/folio/',  // 根目录下的folio文件夹
+            maxImages: 10,        // 预设最大图片数量（按需修改）
+            fileExtension: 'png'  // 文件扩展名
+        };
 
-            async loadImages() {
-                try {
-                    let hasValidImage = false;
-                    for (let retry = 0; retry < this.maxRetry; retry++) {
-                        const imgPath = `${this.folderPath}/${this.imageIndex}.PNG`;
-                        const img = new Image();
-                        img.crossOrigin = "Anonymous"; // 解决跨域问题
-                        
-                        // 设置超时控制
-                        const timeoutPromise = new Promise((_, reject) => 
-                            setTimeout(() => reject(new Error('Timeout')), this.timeout)
-                        );
+        // 图片加载器
+        function loadGallery() {
+            const container = document.getElementById('gallery');
+            
+            for(let i = 1; i <= config.maxImages; i++) {
+                const imgUrl = `${config.basePath}${i}.${config.fileExtension}`;
+                
+                // 创建图片容器
+                const wrapper = document.createElement('div');
+                wrapper.className = 'image-wrapper';
+                
+                // 创建图片元素
+                const img = new Image();
+                img.className = 'gallery-image';
+                img.src = imgUrl;
+                img.alt = `图片 ${i}`;
+                img.loading = 'lazy';  // 启用懒加载
+                
+                // 错误处理
+                img.onerror = () => {
+                    wrapper.style.display = 'none';
+                };
 
-                        const loadPromise = new Promise((resolve, reject) => {
-                            img.onload = () => {
-                                hasValidImage = true;
-                                resolve(img);
-                            };
-                            img.onerror = () => reject(new Error('Image load failed'));
-                        });
-
-                        try {
-                            img.src = imgPath;
-                            await Promise.race([loadPromise, timeoutPromise]);
-                            
-                            const wrapper = document.createElement('div');
-                            wrapper.className = 'gallery-item';
-                            wrapper.appendChild(img);
-                            this.container.appendChild(wrapper);
-                            
-                            this.imageIndex++;
-                            retry = 0; // 重置重试次数
-                        } catch (error) {
-                            if (retry === this.maxRetry - 1) {
-                                if (!hasValidImage && this.imageIndex === 1) {
-                                    this.showFallback();
-                                }
-                                break;
-                            }
-                        }
-                    }
-                } finally {
-                    document.getElementById('loading').remove();
-                }
-            }
-
-            showFallback() {
-                this.container.innerHTML = `
-                    <div style="text-align:center; padding:2rem; color:var(--accent-color)">
-                        <p>未找到图片文件，请检查以下配置：</p>
-                        <p>1. 确认存在 ${this.folderPath}/ 文件夹</p>
-                        <p>2. 图片命名格式为 1.PNG, 2.PNG...</p>
-                        <p>3. 通过本地服务器运行（如VS Code Live Server）</p>
-                    </div>
-                `;
+                wrapper.appendChild(img);
+                container.appendChild(wrapper);
             }
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            new ImageGallery('works-container', 'folio').loadImages();
-            new ImageGallery('about-container', 'aboutme').loadImages();
+        // 初始化加载
+        window.addEventListener('DOMContentLoaded', loadGallery);
+
+        // 窗口大小变化时保持比例
+        window.addEventListener('resize', () => {
+            const images = document.querySelectorAll('.gallery-image');
+            images.forEach(img => {
+                img.style.transform = 'scale(1)'; // 重置hover效果
+            });
         });
     </script>
 </body>
