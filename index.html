@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>作品集</title>
+    <title>作品集 - 修复版</title>
     <style>
         * {
             margin: 0;
@@ -16,137 +16,107 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
-        /* 响应式容器 */
         .container {
             width: 100%;
+            max-width: 75vw;
             margin: 0 auto;
-            padding: 0 20px;
         }
 
-        @media (min-width: 768px) {
-            .container {
-                width: 80%;
-                padding: 0;
-            }
-        }
-
-        /* 导航Tab样式 */
-        .nav-tabs {
-            display: flex;
-            justify-content: center;
-            padding: 1.5rem 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-
-        .tab-btn {
-            color: #ccc;
-            padding: 12px 24px;
-            margin: 0 10px;
-            border: none;
-            background: none;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-
-        .tab-btn.active {
-            color: #fff;
-            font-weight: 500;
-        }
-
-        .tab-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 30px;
-            height: 2px;
-            background: #fff;
-        }
-
-        /* 作品页布局 */
-        .gallery-container {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            padding: 20px 0;
-        }
-
-        .image-wrapper {
+        /* 占位符样式 */
+        .placeholder {
             width: 100%;
+            height: 400px; /* 根据图片比例调整 */
+            background: #222;
+            border-radius: 8px;
             position: relative;
-            overflow: visible;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .placeholder::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255,255,255,0.1),
+                transparent
+            );
+            animation: loading 1.5s infinite;
+        }
+
+        @keyframes loading {
+            100% { left: 200%; }
         }
 
         .gallery-image {
             width: 100%;
             height: auto;
-            display: block;
-            object-fit: contain; /* 完整显示不裁剪 */
+            opacity: 0;
+            transition: opacity 0.5s;
             border-radius: 8px;
-            background: #222; /* 深色背景避免透明区域留白 */
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .loaded {
+            opacity: 1;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- 导航Tab -->
-        <nav class="nav-tabs">
-            <button class="tab-btn active" data-target="works">作品</button>
-            <button class="tab-btn" data-target="about">关于我</button>
-        </nav>
-
-        <!-- 作品画廊 -->
         <div id="works" class="gallery-container"></div>
-        
-        <!-- 关于我画廊 -->
-        <div id="about" class="gallery-container" style="display:none"></div>
     </div>
 
     <script>
-        // 配置参数
-        const config = {
-            works: {
-                path: './folio/',
-                maxImages: 10
-            },
-            about: {
-                path: './aboutme/',
-                maxImages: 5
-            }
-        };
-
-        // 图片加载器
-        async function loadGallery(target) {
-            const container = document.getElementById(target);
-            container.innerHTML = '';
-            
+        async function loadGallery() {
+            const container = document.getElementById('works');
             let index = 1;
-            const currentConfig = config[target];
-
+            
             while(true) {
-                const imgUrl = `${currentConfig.path}${index}.png`;
+                const imgUrl = `./folio/${index}.png`;
                 const imgExists = await checkImageExists(imgUrl);
-
+                
                 if(!imgExists) break;
 
-                const wrapper = document.createElement('div');
-                wrapper.className = 'image-wrapper';
-                
+                // 创建占位容器
+                const placeholder = document.createElement('div');
+                placeholder.className = 'placeholder';
+                container.appendChild(placeholder);
+
+                // 创建图片元素
                 const img = new Image();
                 img.className = 'gallery-image';
-                img.src = imgUrl;
-                img.alt = `${target} ${index}`;
                 img.loading = 'lazy';
+                img.alt = `作品 ${index}`;
+
+                // 图片加载完成处理
+                img.onload = () => {
+                    placeholder.style.background = 'none'; // 移除占位背景
+                    placeholder.innerHTML = '';
+                    placeholder.appendChild(img);
+                    img.classList.add('loaded');
+                };
 
                 // 错误处理
-                img.onerror = () => wrapper.remove();
+                img.onerror = () => {
+                    placeholder.remove(); // 移除加载失败的占位符
+                };
 
-                wrapper.appendChild(img);
-                container.appendChild(wrapper);
+                // 使用IntersectionObserver实现视口加载
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if(entry.isIntersecting) {
+                            img.src = imgUrl;
+                            observer.unobserve(placeholder);
+                        }
+                    });
+                }, { rootMargin: '200px' });
+
+                observer.observe(placeholder);
                 index++;
             }
         }
@@ -161,26 +131,8 @@
             });
         }
 
-        // Tab切换逻辑
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                
-                const target = this.dataset.target;
-                document.querySelectorAll('.gallery-container').forEach(container => {
-                    container.style.display = 'none';
-                });
-                document.getElementById(target).style.display = 'flex';
-                
-                if(document.getElementById(target).children.length === 0) {
-                    loadGallery(target);
-                }
-            });
-        });
-
-        // 初始化加载作品集
-        window.addEventListener('DOMContentLoaded', () => loadGallery('works'));
+        // 初始化加载
+        window.addEventListener('DOMContentLoaded', loadGallery);
     </script>
 </body>
 </html>
