@@ -2,32 +2,91 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PDF图片展示</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design Portfolio</title>
     <style>
+        :root {
+            --primary-color: #2C2C2C;
+            --accent-color: #7D7D7D;
+            --bg-color: #FFFFFF;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Helvetica Neue', sans-serif;
         }
 
         body {
-            background: #000;
-            touch-action: pan-y;
+            background: var(--bg-color);
+            overflow-x: hidden;
         }
 
-        .container {
-            position: relative;
-            width: 100vw;
+        /* Tab切换核心样式 */
+        .tabs input[type="radio"] {
+            display: none;
         }
 
-        .pdf-image {
-            width: 100%;
-            height: auto;
+        .tab-nav {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            z-index: 100;
+            background: rgba(255,255,255,0.9);
+            padding: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .tab-nav label {
+            cursor: pointer;
+            padding: 0.8rem 1.5rem;
+            margin: 0 0.5rem;
+            border-radius: 8px;
+            color: var(--primary-color);
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .tabs input:checked + label {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .gallery-container {
+            display: none;
+            min-height: 100vh;
+            padding: 4rem 2rem;
+        }
+
+        #works:checked ~ #works-content,
+        #about:checked ~ #about-content {
             display: block;
-            margin: 0 auto;
-            opacity: 0;
-            transition: opacity 0.3s;
+            animation: fadeIn 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        /* 图片展示系统 */
+        .gallery-item {
+            margin: 0 auto 4rem;
+            max-width: 1200px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+            border-radius: 2px;
+            overflow: hidden;
+            background: #FAFAFA;
+        }
+
+        .gallery-image {
+            width: 100%;
+            height: 100vh;
+            object-fit: contain;
+            transition: transform 0.3s ease;
+        }
+
+        /* 加载动画 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .loading {
@@ -35,83 +94,82 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            color: white;
-            font-size: 18px;
+            font-size: 1.2rem;
+            color: var(--accent-color);
         }
     </style>
 </head>
 <body>
-    <div class="container" id="imageContainer"></div>
-    <div class="loading" id="loading">正在加载PDF...</div>
+    <div class="tabs">
+        <!-- Tab导航 -->
+        <div class="tab-nav">
+            <input type="radio" name="tab" id="works" checked>
+            <label for="works">Works</label>
+            
+            <input type="radio" name="tab" id="about">
+            <label for="about">About</label>
+        </div>
 
-    <!-- 引入pdf-img-convert.js -->
-    <script src="https://cdn.jsdelivr.net/npm/pdf-img-convert@2.0.0/dist/pdf-img-convert.min.js"></script>
-    
+        <!-- 作品画廊 -->
+        <div class="gallery-container" id="works-content">
+            <div class="gallery-item" id="works-container"></div>
+        </div>
+
+        <!-- 关于画廊 -->
+        <div class="gallery-container" id="about-content">
+            <div class="gallery-item" id="about-container"></div>
+        </div>
+
+        <div class="loading" id="loading">Loading...</div>
+    </div>
+
     <script>
-        // 移动端适配函数
-        const setRem = () => {
-            const docEl = document.documentElement
-            const resizeEvt = 'orientationchange' in window ? 'orientationchange' : 'resize'
-            const recalc = () => {
-                const clientWidth = docEl.clientWidth
-                docEl.style.fontSize = (clientWidth / 7.5) + 'px'
+        // 图片加载器
+        class ImageGallery {
+            constructor(containerId, folderPath) {
+                this.container = document.getElementById(containerId);
+                this.folderPath = folderPath;
+                this.imageIndex = 1;
             }
-            window.addEventListener(resizeEvt, recalc, false)
-            recalc()
-        }
-        setRem()
 
-        // PDF处理函数
-        const processPDF = async () => {
-            try {
-                // 加载PDF文件
-                const pdfBytes = await fetch('folio.pdf').then(res => res.arrayBuffer())
-                
-                // 转换PDF为图片数组
-                const imageArray = await pdfImgConvert(pdfBytes, {
-                    scale: 3,           // 缩放比例（根据屏幕密度调整）
-                    quality: 0.8,       // 图片质量
-                    pageNumbers: []     // 空数组表示转换所有页面
-                })
-
-                // 生成图片DOM
-                const container = document.getElementById('imageContainer')
-                imageArray.forEach((imgData, index) => {
-                    const img = new Image()
-                    img.src = imgData
-                    img.className = 'pdf-image'
-                    img.onload = () => {
-                        img.style.opacity = 1
-                        // 预加载下一张图片
-                        if(index < imageArray.length - 1) {
-                            const nextImg = new Image()
-                            nextImg.src = imageArray[index + 1]
-                        }
+            async loadImages() {
+                try {
+                    while(true) {
+                        const imgPath = `${this.folderPath}/${this.imageIndex}.PNG`;
+                        const img = new Image();
+                        
+                        img.src = imgPath;
+                        img.className = 'gallery-image';
+                        img.alt = `Project ${this.imageIndex}`;
+                        
+                        img.onload = () => {
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'gallery-item';
+                            wrapper.appendChild(img);
+                            this.container.appendChild(wrapper);
+                        };
+                        
+                        img.onerror = () => { throw new Error('Image load failed') };
+                        
+                        this.imageIndex++;
+                        // 延迟加载避免阻塞
+                        await new Promise(r => setTimeout(r, 100));
                     }
-                    container.appendChild(img)
-                })
-
-                // 移除加载提示
-                document.getElementById('loading').remove()
-
-            } catch (error) {
-                console.error('PDF处理失败:', error)
-                alert('PDF加载失败，请检查文件是否存在')
+                } catch(e) {
+                    document.getElementById('loading').style.display = 'none';
+                    console.log(`Loaded ${this.imageIndex-1} images`);
+                }
             }
         }
 
-        // 初始化执行
-        window.onload = processPDF
-
-        // 移动端触控事件处理
-        let startY = 0
-        document.body.addEventListener('touchstart', e => {
-            startY = e.touches[0].clientY
-        }, { passive: true })
-
-        document.body.addEventListener('touchmove', e => {
-            e.preventDefault()
-        }, { passive: false })
+        // 初始化画廊
+        window.addEventListener('DOMContentLoaded', () => {
+            const worksGallery = new ImageGallery('works-container', 'folio');
+            const aboutGallery = new ImageGallery('about-container', 'aboutme');
+            
+            worksGallery.loadImages();
+            aboutGallery.loadImages();
+        });
     </script>
 </body>
 </html>
