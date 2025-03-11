@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全屏图片画廊</title>
+    <title>垂直图片画廊修复版</title>
     <style>
         * {
             margin: 0;
@@ -15,36 +15,32 @@
             background: #111;
             min-height: 100vh;
             display: flex;
-            justify-content: center; /* 水平居中 */
+            justify-content: center;
+            line-height: 0; /* 消除行高导致的间隙  */
         }
 
         .gallery-container {
             width: 100%;
-            max-width: 75vw; /* 网页宽度75% */
-            padding: 20px 0;
+            max-width: 75vw;
+            padding: 0; /* 移除容器内边距  */
         }
 
         .image-wrapper {
             position: relative;
             width: 100%;
-            margin-bottom: 20px;
-            background: #222;
-            border-radius: 8px;
             overflow: hidden;
+            margin: 0; /* 确保无外边距  */
+            border-radius: 8px;
+            font-size: 0; /* 消除子元素行内间隙  */
         }
 
         .gallery-image {
             width: 100%;
-            height: auto; /* 高度自适应 */
-            display: block;
-            object-fit: contain; /* 完整显示不裁剪  */
+            height: auto;
+            display: block; /* 强制转为块元素消除间隙  */
+            object-fit: contain;
+            vertical-align: top; /* 对齐顶部消除空白  */
             transition: transform 0.3s ease;
-        }
-
-        @media (hover: hover) {
-            .gallery-image:hover {
-                transform: scale(1.02);
-            }
         }
 
         /* 加载动画 */
@@ -61,7 +57,6 @@
     <div class="gallery-container" id="gallery"></div>
 
     <script>
-        // 动态加载图片
         async function loadGallery() {
             const container = document.getElementById('gallery');
             let index = 1;
@@ -75,36 +70,27 @@
                 const wrapper = document.createElement('div');
                 wrapper.className = 'image-wrapper';
                 
-                // 创建图片加载容器
-                const imgContainer = document.createElement('div');
-                imgContainer.className = 'img-container';
-                
                 const img = new Image();
                 img.className = 'gallery-image';
-                img.loading = 'lazy';
                 img.alt = `图片 ${index}`;
+                img.loading = 'lazy';
 
-                // 图片加载成功处理
+                // 动态计算容器高度 
                 img.onload = () => {
+                    img.style.height = 'auto';
+                    img.style.maxHeight = '100vh';
                     img.classList.add('loaded');
-                    // 自动计算容器高度 
-                    imgContainer.style.paddingTop = `${(img.naturalHeight / img.naturalWidth) * 100}%`;
                 };
 
-                // 错误处理
-                img.onerror = () => {
-                    wrapper.remove();
-                };
-
+                img.onerror = () => wrapper.remove();
                 img.src = imgUrl;
-                imgContainer.appendChild(img);
-                wrapper.appendChild(imgContainer);
+                
+                wrapper.appendChild(img);
                 container.appendChild(wrapper);
                 index++;
             }
         }
 
-        // 检测图片是否存在
         function checkImageExists(url) {
             return new Promise(resolve => {
                 const img = new Image();
@@ -114,7 +100,6 @@
             });
         }
 
-        // 初始化加载
         window.addEventListener('DOMContentLoaded', loadGallery);
     </script>
 </body>
