@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全屏图片画廊修复版</title>
+    <title>全屏图片画廊</title>
     <style>
         * {
             margin: 0;
@@ -12,55 +12,37 @@
         }
 
         body {
-            height: 100vh;
-            background: #111; /* 深色背景避免白屏 */
-            overflow: hidden;
+            background: #111;
+            min-height: 100vh;
         }
 
         .gallery-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            grid-auto-rows: minmax(200px, 1fr);
-            gap: 2px;
-            height: 100vh;
-            padding: 2px;
+            display: flex;
+            flex-direction: column; /* 垂直排列 */
+            align-items: center;
+            gap: 5px;
+            padding: 5px;
         }
 
         .image-wrapper {
+            width: 100vw; /* 撑满视口宽度 */
+            max-width: 100%;
             position: relative;
-            width: 100%;
-            height: 100%;
             overflow: hidden;
-            background: #222; /* 加载占位背景 */
-            aspect-ratio: 4/3; /* 固定宽高比避免布局抖动 */
+            aspect-ratio: 16/9; /* 固定宽高比（根据需求调整）*/
         }
 
         .gallery-image {
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: cover; /* 等比缩放并裁剪 */
+            display: block;
             transition: transform 0.3s ease;
-            opacity: 0; /* 初始隐藏实现渐显效果 */
-            transition: opacity 0.5s;
-        }
-
-        .loaded {
-            opacity: 1;
-        }
-
-        /* 错误提示样式 */
-        .error-msg {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #fff;
-            font-family: Arial;
         }
 
         @media (hover: hover) {
             .gallery-image:hover {
-                transform: scale(1.05);
+                transform: scale(1.02);
             }
         }
     </style>
@@ -69,81 +51,49 @@
     <div class="gallery-container" id="gallery"></div>
 
     <script>
-        // 配置参数 
-        const config = {
-            basePath: './folio/', // 改为相对路径避免路径问题 
-            maxImages: 10,        
-            fileExtension: 'png',
-            placeholder: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=' // 1px透明占位图
-        };
-
-        // 图片加载器 
-        function loadGallery() {
+        // 动态加载图片
+        async function loadGallery() {
             const container = document.getElementById('gallery');
+            let index = 1;
             
-            for(let i = 1; i <= config.maxImages; i++) {
+            while(true) {
+                const imgUrl = `./folio/${index}.png`;
+                const imgExists = await checkImageExists(imgUrl);
+                
+                if(!imgExists) break;
+
                 const wrapper = document.createElement('div');
                 wrapper.className = 'image-wrapper';
                 
                 const img = new Image();
                 img.className = 'gallery-image';
-                img.src = config.placeholder; // 初始使用占位图
-                img.setAttribute('data-src', `${config.basePath}${i}.${config.fileExtension}`);
-                img.alt = `图片 ${i}`;
-                
-                // 错误处理 
+                img.src = imgUrl;
+                img.alt = `图片 ${index}`;
+                img.loading = 'lazy';
+
+                // 错误处理
                 img.onerror = () => {
-                    const error = document.createElement('div');
-                    error.className = 'error-msg';
-                    error.textContent = '加载失败';
-                    wrapper.appendChild(error);
-                    img.remove();
+                    wrapper.remove();
                 };
 
-                // 成功加载处理
-                img.onload = () => {
-                    img.classList.add('loaded');
-                    img.removeAttribute('data-src');
-                };
-
-                // 使用Intersection Observer实现懒加载 
-                const observer = new IntersectionObserver((entries) => {
-                    entries.forEach(entry => {
-                        if(entry.isIntersecting) {
-                            const lazyImage = entry.target;
-                            lazyImage.src = lazyImage.dataset.src;
-                            observer.unobserve(lazyImage);
-                        }
-                    });
-                });
-
-                observer.observe(img);
                 wrapper.appendChild(img);
                 container.appendChild(wrapper);
+                index++;
             }
         }
 
-        // 窗口尺寸变化时重置布局 
-        let resizeTimer;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => {
-                document.querySelectorAll('.gallery-image').forEach(img => {
-                    img.style.transform = 'scale(1)';
-                });
-            }, 200);
-        });
+        // 检测图片是否存在
+        function checkImageExists(url) {
+            return new Promise(resolve => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = url;
+            });
+        }
 
         // 初始化加载
-        window.addEventListener('DOMContentLoaded', () => {
-            // 检查浏览器兼容性 
-            if('IntersectionObserver' in window) {
-                loadGallery();
-            } else {
-                alert('建议使用Chrome/Firefox等现代浏览器访问');
-                window.location = 'https://browsehappy.com/';
-            }
-        });
+        window.addEventListener('DOMContentLoaded', loadGallery);
     </script>
 </body>
 </html>
